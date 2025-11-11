@@ -1,0 +1,152 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+#load libraries
+library(ape)
+library(dendextend)
+```
+
+# Comparing different trimming thresholds on no-salmon alignments
+```{r}
+#load trees
+tree1 <- read.tree("no.salmon.aligned.tr01.tree")
+tree2 <- read.tree("no.salmon.aligned.tr02.tree")
+tree3 <- read.tree("no.salmon.aligned.tr03.tree")
+tree4 <- read.tree("no.salmon.aligned.tr04.tree") 
+tree5 <- read.tree("no.salmon.aligned.tr05.tree")
+```
+
+
+# comparing trim 1 and 2 (no salmon)
+```{r}
+#check tips
+identical(sort(tree1$tip.label), sort(tree2$tip.label))
+```
+```{r}
+#convert to dendrograms
+#d1 <- as.dendrogram(tree1) #gives error as the tree branches are not equidistant
+#but we are only interested in structure so it doesn't matter
+
+#forcing ultrametricity
+#install.packages("phytools")
+library(phytools)
+```
+
+```{r}
+#using cophylo compares non-ultrametric trees
+
+t1_rooted <- midpoint.root(tree1)
+t2_rooted <- midpoint.root(tree2)
+
+
+obj <- cophylo(t1_rooted, t2_rooted)
+plot(obj, fsize = 0.3)
+```
+# comparing tree 2 and 3
+```{r}
+#comparing tips
+identical(sort(tree2$tip.label), sort(tree3$tip.label)) #TRUE
+t3_rooted <- midpoint.root(tree3)
+
+#using cophylo 
+obj2 <- cophylo(t2_rooted, t3_rooted)
+plot(obj, fsize = 0.3)
+```
+# compare tree 3 and 4
+```{r}
+#comparing tips
+identical(sort(tree3$tip.label), sort(tree4$tip.label)) #TRUE
+
+#rooting
+t4_rooted <- midpoint.root(tree4)
+
+#using cophylo 
+obj3 <- cophylo(t3_rooted, t4_rooted)
+plot(obj, fsize = 0.3)
+```
+# compare tree 4 and 5
+```{r}
+#comparing tips
+identical(sort(tree4$tip.label), sort(tree5$tip.label)) #TRUE
+
+#using cophylo 
+obj4 <- cophylo(tree4, tree5)
+plot(obj, fsize = 0.3)
+```
+#appears as if trimming has made no difference in the topology of the tree. can use any for comparision. 
+
+```{r}
+#might be worth comparing the most different ones
+#comparing tips
+identical(sort(tree1$tip.label), sort(tree4$tip.label)) #TRUE
+
+#using cophylo 
+obj5 <- cophylo(t1_rooted, t4_rooted)
+plot(obj, fsize = 0.3)
+```
+
+# confirm with RF distances
+#measure of topological dissimilarity
+#counts the number of splits present in one tree but not other #e.g. if A,C has a split but B doesn't (1 difference)
+```{r}
+all_trees <- list(tree1, tree2, tree3, tree4, tree5)
+
+#prune all trees to share same tips
+common_tips <- Reduce(intersect, lapply(all_trees, function(tr) tr$tip.label))
+all_trees_pruned <- lapply(all_trees, function(tr) drop.tip(tr, setdiff(tr$tip.label, common_tips)))
+
+#compute RF matrix
+rf_matrix <- matrix(NA, nrow = 5, ncol = 5)
+for (i in 1:5) {for (j in 1:5) {rf_matrix[i, j] <- dist.topo(all_trees_pruned[[i]], all_trees_pruned[[j]])}} #gives raw differences
+rownames(rf_matrix) <- colnames(rf_matrix) <- paste0("Tree", 1:5)
+print(rf_matrix)
+```
+
+```{r}
+#normalize by maximum distance
+n_tips <- length(common_tips)
+rf_matrix <- rf_matrix / (2 * n_tips - 6)
+print(rf_matrix)
+#max possible RF distance is 2n-6 so gives score bw 0 to 1, so easier to interpret
+```
+#score = 0 (identical topology)
+#very small differences in topology overall so all five trees are nearly identical
+#max disagreement between tree 1 and tree 4 (0.04347826 = different by ~4.3% split = 6 out of 140 splits)
+
+#trimming has very little impact on topology. most of the structure is stable, regardless of trimming. this is good. 
+
+```{r}
+#visualize as heatmap
+heatmap(rf_matrix, symm = TRUE, main = "RF Distance Heatmap")
+```
+```{r}
+#comparing trees with tree 1
+comparePhylo(tree1, tree2) 
+comparePhylo(tree1, tree3)
+comparePhylo(tree1, tree4)
+comparePhylo(tree1, tree5)
+```
+
+```{r}
+#comparing with tree 2
+comparePhylo(tree2, tree3)
+comparePhylo(tree2, tree4)
+comparePhylo(tree2, tree5)
+```
+```{r}
+#comparing with tree 3
+comparePhylo(tree3, tree4)
+comparePhylo(tree2, tree5)
+```
+```{r}
+#comparing with tree 4
+comparePhylo(tree4, tree5)
+```
+#nothing visible visually
+
+
+
+

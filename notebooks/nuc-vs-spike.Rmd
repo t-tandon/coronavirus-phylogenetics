@@ -1,0 +1,168 @@
+---
+title: "nuc-vs-spike"
+output: word_document
+---
+
+```{r}
+#load packages
+library(ape)
+library(phytools)
+```
+
+```{r}
+#load trees
+nuc_tree <- read.tree("nucleocapsid_aln_clean.fasta.treefile") 
+spike_tree <- read.tree("spike_aln_clean.fasta.treefile") 
+```
+
+```{r}
+#prune to common taxa 
+common_tips <- intersect(nuc_tree$tip.label, spike_tree$tip.label)
+
+nuc_tree_pruned <- keep.tip(nuc_tree, common_tips)
+spike_tree_pruned <- keep.tip(spike_tree, common_tips)
+
+#returns NULL warning #drops all tips #none in common 
+```
+```{r}
+setdiff(nuc_tree$tip.label, spike_tree$tip.label)
+setdiff(spike_tree$tip.label, nuc_tree$tip.label)
+```
+Error occurs because protein ids are different, must filter tips by organism name only
+
+
+```{r}
+#extract organism name
+nuc_names <- sapply(strsplit(nuc_tree$tip.label, "_\\|_"), `[`, 1)
+spike_names <- sapply(strsplit(spike_tree$tip.label, "_\\|_"), `[`, 1)
+```
+
+```{r}
+#map 
+nuc_map <- setNames(nuc_tree$tip.label, nuc_names)
+spike_map <- setNames(spike_tree$tip.label, spike_names)
+```
+
+```{r}
+#find common
+common_organisms <- intersect(names(nuc_map), names(spike_map))
+length(common_organisms) 
+```
+
+```{r}
+#get full tips for common organisms
+nuc_common_tips <- nuc_map[common_organisms]
+spike_common_tips <- spike_map[common_organisms]
+```
+
+```{r}
+#prune to shared
+nuc_tree_pruned <- keep.tip(nuc_tree, nuc_common_tips)
+spike_tree_pruned <- keep.tip(spike_tree, spike_common_tips)
+```
+
+```{r}
+#relabel tree tips
+nuc_tree_pruned$tip.label <- common_organisms
+spike_tree_pruned$tip.label <- common_organisms
+```
+
+# compare with RF distances
+```{r}
+library(ape)
+#normalize rf distance
+rf_raw <- dist.topo(nuc_tree_pruned, spike_tree_pruned)
+rf_max <- 2 * length(nuc_tree_pruned$tip.label) - 6
+rf_normalized <- rf_raw / rf_max
+cat("RF distance:", rf_raw, "\nNormalized RF distance:", rf_normalized, "\n")
+```
+
+# plot with tanglegrams
+```{r}
+library(phytools)
+
+coplot <- cophylo(nuc_tree_pruned, spike_tree_pruned, rotate = FALSE)
+plot(coplot, fsize = 0.5, link.type = "curved", link.lwd = 1)
+```
+
+```{r}
+#highlight moved tips
+obj <- cophylo(nuc_tree_pruned, spike_tree_pruned)
+moved <- which(obj$trees[[1]]$tip.label != obj$trees[[2]]$tip.label)
+plot(obj, fsize = 0.6, link.lwd = 1, link.col = ifelse(1:length(obj$trees[[1]]$tip.label) %in% moved, "red", "gray"))
+```
+```{r}
+comparePhylo(nuc_tree_pruned, spike_tree_pruned)
+```
+#very different structurally but not visually, what??? 
+
+
+```{r}
+#load treespace
+#install.packages("treespace")
+library(treespace)
+```
+
+```{r}
+#confirming they have matching tips
+all(sort(nuc_tree_pruned$tip.label) == sort(spike_tree_pruned$tip.label))
+```
+
+```{r}
+#plot tree difference
+plotTreeDiff(nuc_tree_pruned, spike_tree_pruned)
+
+```
+
+
+# for rooted trees
+```{r}
+library(phytools)
+nuc_rooted <- midpoint.root(nuc_tree_pruned)
+spike_rooted <- midpoint.root(spike_tree_pruned)
+```
+
+```{r}
+#plot tree difference
+plotTreeDiff(nuc_rooted, spike_rooted, cex = 0.5)
+```
+
+```{r}
+coplot <- cophylo(nuc_rooted, spike_rooted, rotate = TRUE)
+plot(coplot, fsize = 0.5, link.type = "curved", link.lwd = 1)
+```
+## note that tangles are ONLY visible when the tree is rooted!!! 
+
+```{r}
+#perhaps easier to see with colours
+coplot <- cophylo(nuc_rooted, spike_rooted, rotate = TRUE)
+
+n_links <- length(coplot$trees[[1]]$tip.label)
+colors <- rainbow(n_links) 
+
+plot(coplot,
+     fsize = 0.4,
+     link.lwd = 1.2,
+     link.type = "curved",
+     link.col = colors)
+```
+
+```{r}
+#also possible with viridus package
+#install.packages("viridis")
+library(viridis)
+```
+```{r}
+coplot <- cophylo(nuc_rooted, spike_rooted, rotate = TRUE)
+
+n_links <- length(coplot$trees[[1]]$tip.label)
+colors <- viridus(n_links)  # or try viridis::viridis(n_links)
+
+# Plot with color-coded links
+plot(coplot,
+     fsize = 0.4,
+     link.lwd = 1.2,
+     link.type = "curved",
+     link.col = colors)
+```
+
