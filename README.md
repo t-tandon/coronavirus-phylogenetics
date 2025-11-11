@@ -1,1 +1,2 @@
-# phylogenetics-covid19
+# phylogenetics-coronaviruses
+
